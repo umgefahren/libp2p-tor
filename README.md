@@ -6,7 +6,7 @@ Tor based transport for libp2p. Connect through the Tor network to TCP listeners
 Although the sound of "Tor" might convey a sense of security it is *very* easy to misuse this
 crate and leaking private information while using. Study libp2p carefully and try to make sure
 you fully understand it's current limits regarding privacy. I.e. using identify might already
-render this protocol obsolete.
+render this transport obsolete.
 
 Main entrypoint of the crate: [`TorTransport`]
 
