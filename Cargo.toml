@@ -1,6 +1,6 @@
 [package]
 name = "libp2p-community-tor"
-version = "0.1.0-alpha"
+version = "0.1.1-alpha"
 edition = "2021"
 license = "MIT"
 resolver = "2"
@@ -35,3 +35,4 @@ required-features = ["async-std", "rustls"]
 [package.metadata.docs.rs]
 rustdoc-args = ["--cfg", "docsrs"]
 rustc-args = ["--cfg", "docsrs"]
+all-features = true
