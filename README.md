@@ -1,3 +1,6 @@
+[![Continuous integration](https://github.com/umgefahren/libp2p-tor/actions/workflows/ci.yml/badge.svg)](https://github.com/umgefahren/libp2p-tor/actions/workflows/ci.yml)
+
+
 # libp2p Tor
 
 Tor based transport for libp2p. Connect through the Tor network to TCP listeners.
