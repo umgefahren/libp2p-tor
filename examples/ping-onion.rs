@@ -43,14 +43,14 @@
 //! The two nodes establish a connection, negotiate the ping protocol
 //! and begin pinging each other over Tor.
 
+use async_std_crate as async_std;
 use futures::prelude::*;
-use libp2p_community_tor::{AddressConversion, AsyncStdRustlsTorTransport};
 use libp2p::swarm::{keep_alive, Swarm, SwarmEvent};
 use libp2p::{
     core::upgrade, identity, mplex, noise, ping, yamux, Multiaddr, NetworkBehaviour, PeerId,
     Transport,
 };
-use async_std_crate as async_std;
+use libp2p_community_tor::{AddressConversion, AsyncStdRustlsTorTransport};
 use std::error::Error;
 
 async fn onion_transport(
