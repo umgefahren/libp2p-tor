@@ -33,7 +33,27 @@
 //!
 //! Main entrypoint of the crate: [`TorTransport`]
 //!
-//! ## Example
+//! ## Features
+//!
+//! You have to enable a TLS provider **and** a runtime.
+//! The TLS providers are:
+//! 
+//! - [`rustls`](https://github.com/rustls/rustls)
+//! - [`native-tls`](https://github.com/sfackler/rust-native-tls)
+//!
+//! The runtimes are:
+//!
+//! - [`tokio`](https://github.com/tokio-rs/tokio)
+//! - [`async-std`](https://github.com/async-rs/async-std)
+//!
+//! With that the transports you have to use are:
+//!
+//! |               | **rustls**                     | **native-tls**                    |
+//! |---------------|--------------------------------|-----------------------------------|
+//! | **tokio**     | [`TokioRustlsTorTransport`]    | [`TokioNativeTlsTorTransport`]    |
+//! | **async-std** | [`AsyncStdRustlsTorTransport`] | [`AsyncStdNativeTlsTorTransport`] |
+//!
+//! ## Example (async-std + native-tls)
 //! ```no_run
 //! # use async_std_crate as async_std;
 //! # use libp2p_core::Transport;

@@ -20,9 +20,26 @@ are dealing with.
 
 ### Add to your dependencies
 
+This won't work:
 ```bash
 cargo add libp2p-community-tor@0.1.0-alpha
 ```
+
+You have to choose a TLS provider **and** a runtime.
+The TLS providers are:
+
+- [`rustls`](https://github.com/rustls/rustls)
+- [`native-tls`](https://github.com/sfackler/rust-native-tls)
+
+The runtimes are:
+
+- [`tokio`](https://github.com/tokio-rs/tokio)
+- [`async-std`](https://github.com/async-rs/async-std)
+
+|               | **rustls**                                                       | **native-tls**                                                       |
+|---------------|------------------------------------------------------------------|----------------------------------------------------------------------|
+| **tokio**     | `cargo add libp2p-community-tor@0.1.0-alpha -F tokio,rustls`     | `cargo add libp2p-community-tor@0.1.0-alpha -F tokio,native-tls`     |
+| **async-std** | `cargo add libp2p-community-tor@0.1.0-alpha -F async-std,rustls` | `cargo add libp2p-community-tor@0.1.0-alpha -F async-std,native-tls` |
 
 ### Example
 ```rust
