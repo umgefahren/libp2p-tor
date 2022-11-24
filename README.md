@@ -1,5 +1,6 @@
 [![Continuous integration](https://github.com/umgefahren/libp2p-tor/actions/workflows/ci.yml/badge.svg)](https://github.com/umgefahren/libp2p-tor/actions/workflows/ci.yml)
-
+[![docs.rs](https://img.shields.io/docsrs/libp2p-community-tor?style=flat-square)](https://docs.rs/libp2p-community-tor/latest)
+[![Crates.io](https://img.shields.io/crates/v/libp2p-community-tor?style=flat-square)](https://crates.io/libp2p-community-tor)
 
 # libp2p Tor
 
