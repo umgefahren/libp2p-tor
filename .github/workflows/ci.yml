@@ -62,7 +62,7 @@ jobs:
           components: clippy
 
       - name: Run cargo clippy
-        run: cargo clippy
+        run: cargo clippy --all-features
 
   rustfmt:
     name: Rust format
