@@ -4,6 +4,9 @@ version = "0.1.0-alpha"
 edition = "2021"
 license = "MIT"
 resolver = "2"
+description = "Tor transport for libp2p."
+repository = "https://github.com/umgefahren/libp2p-tor"
+authors = ["umgefahren <hannes@umgefahren.xyz>"]
 
 [dependencies]
 arti-client = { version = "0.7", default-features = false }

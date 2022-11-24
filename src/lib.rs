@@ -21,11 +21,15 @@
 #![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
 //! Tor based transport for libp2p. Connect through the Tor network to TCP listeners.
 //!
-//! # ⚠️ Misuse warning ⚠️ - read carefull before using
+//! # ⚠️ Misuse warning ⚠️ - read carefully before using
 //! Although the sound of "Tor" might convey a sense of security it is *very* easy to misuse this
 //! crate and leaking private information while using. Study libp2p carefully and try to make sure
 //! you fully understand it's current limits regarding privacy. I.e. using identify might already
 //! render this transport obsolete.
+//!
+//! This transport explicitly **doesn't** provide any enhanced privacy if it's just used like a regular transport.
+//! Use with caution and at your own risk. **Don't** just blindly advertise Tor without fully understanding what you
+//! are dealing with.
 //!
 //! Main entrypoint of the crate: [`TorTransport`]
 //!

@@ -1,14 +1,25 @@
-# libp2p-community-tor
+# libp2p Tor
 
 Tor based transport for libp2p. Connect through the Tor network to TCP listeners.
 
-## ⚠️ Misuse warning ⚠️ - read carefull before using
+Build on top of [Arti](https://gitlab.torproject.org/tpo/core/arti).
+
+## ⚠️ Misuse warning ⚠️ - read carefully before using
+
 Although the sound of "Tor" might convey a sense of security it is *very* easy to misuse this
 crate and leaking private information while using. Study libp2p carefully and try to make sure
 you fully understand it's current limits regarding privacy. I.e. using identify might already
 render this transport obsolete.
 
-Main entrypoint of the crate: [`TorTransport`]
+This transport explicitly **doesn't** provide any enhanced privacy if it's just used like a regular transport.
+Use with caution and at your own risk. **Don't** just blindly advertise Tor without fully understanding what you
+are dealing with.
+
+### Add to your dependencies
+
+```bash
+cargo add libp2p-community-tor@0.1.0-alpha
+```
 
 ### Example
 ```rust
@@ -17,5 +28,9 @@ let mut transport = libp2p_community_tor::AsyncStdNativeTlsTorTransport::bootstr
 // we have achieved tor connection
 let _conn = transport.dial(address)?.await?;
 ```
+
+### About
+
+This crate originates in a PR to bring Tor support too rust-libp2p. Read more about it here: libp2p/rust-libp2p#2899
 
 License: MIT
