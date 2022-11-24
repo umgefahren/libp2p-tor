@@ -37,7 +37,7 @@
 //!
 //! You have to enable a TLS provider **and** a runtime.
 //! The TLS providers are:
-//! 
+//!
 //! - [`rustls`](https://github.com/rustls/rustls)
 //! - [`native-tls`](https://github.com/sfackler/rust-native-tls)
 //!
