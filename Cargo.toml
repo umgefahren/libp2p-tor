@@ -1,0 +1,34 @@
+[package]
+name = "libp2p-community-tor"
+version = "0.1.0-alpha"
+edition = "2021"
+license = "MIT"
+resolver = "2"
+
+[dependencies]
+arti-client = { version = "0.7", default-features = false }
+async-std-crate = { package = "async-std", version = "1", optional = true, default-features = false }
+futures = "0.3"
+libp2p-core = { version = "0.37" }
+thiserror = "1"
+tokio-crate = { package = "tokio", version = "1", optional = true, default-features = false }
+tor-rtcompat = "0.7"
+
+[dev-dependencies]
+libp2p = { version = "0.49", features = ["mplex", "noise", "ping", "yamux"] }
+tokio-crate = { package = "tokio", version = "1", features = ["rt", "macros"] }
+async-std-crate = { package = "async-std", version = "1", features = ["attributes"] }
+
+[features]
+tokio = ["arti-client/tokio", "dep:tokio-crate"]
+async-std = ["arti-client/async-std", "dep:async-std-crate"]
+native-tls = ["arti-client/native-tls"]
+rustls = ["arti-client/rustls"]
+
+[[example]]
+name = "ping-onion"
+required-features = ["async-std", "rustls"]
+
+[package.metadata.docs.rs]
+rustdoc-args = ["--cfg", "docsrs"]
+rustc-args = ["--cfg", "docsrs"]
