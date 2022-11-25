@@ -45,11 +45,8 @@
 
 use async_std_crate as async_std;
 use futures::prelude::*;
-use libp2p::swarm::{keep_alive, Swarm, SwarmEvent};
-use libp2p::{
-    core::upgrade, identity, mplex, noise, ping, yamux, Multiaddr, NetworkBehaviour, PeerId,
-    Transport,
-};
+use libp2p::swarm::{keep_alive, NetworkBehaviour, Swarm, SwarmEvent};
+use libp2p::{core::upgrade, identity, mplex, noise, ping, yamux, Multiaddr, PeerId, Transport};
 use libp2p_community_tor::{AddressConversion, AsyncStdRustlsTorTransport};
 use std::error::Error;
 
@@ -87,7 +84,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let transport = onion_transport(local_key).await?;
 
-    let mut swarm = Swarm::new(transport, Behaviour::default(), local_peer_id);
+    let mut swarm = Swarm::with_async_std_executor(transport, Behaviour::default(), local_peer_id);
 
     // Dial the peer identified by the multi-address given as the second
     // command-line argument, if any.

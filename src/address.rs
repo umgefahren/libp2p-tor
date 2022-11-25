@@ -52,9 +52,9 @@ pub fn safe_extract_tor_address(multiaddr: &Multiaddr) -> Option<TorAddr> {
     Some(tor_addr)
 }
 
-fn try_to_domain_and_port<'a, 'b>(
+fn try_to_domain_and_port<'a>(
     maybe_domain: &'a Protocol,
-    maybe_port: &'b Protocol,
+    maybe_port: &Protocol,
 ) -> Option<(&'a str, u16)> {
     match (maybe_domain, maybe_port) {
         (
