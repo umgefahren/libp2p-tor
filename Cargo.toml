@@ -9,7 +9,7 @@ repository = "https://github.com/umgefahren/libp2p-tor"
 authors = ["umgefahren <hannes@umgefahren.xyz>"]
 
 [dependencies]
-arti-client = { version = "0.7", default-features = false }
+arti-client = { version = "0.8", default-features = false }
 async-std-crate = { package = "async-std", version = "1", optional = true, default-features = false }
 futures = "0.3"
 libp2p-core = { version = "0.38" }
