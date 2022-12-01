@@ -15,7 +15,7 @@ futures = "0.3"
 libp2p-core = { version = "0.38" }
 thiserror = "1"
 tokio-crate = { package = "tokio", version = "1", optional = true, default-features = false }
-tor-rtcompat = "0.7"
+tor-rtcompat = "0.8"
 
 [dev-dependencies]
 libp2p = { version = "0.50", features = ["mplex", "noise", "ping", "yamux", "macros", "async-std"] }
