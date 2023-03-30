@@ -19,6 +19,8 @@
 // DEALINGS IN THE SOFTWARE.
 
 #![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
+#![warn(clippy::pedantic)]
+#![deny(unsafe_code)]
 //! Tor based transport for libp2p. Connect through the Tor network to TCP listeners.
 //!
 //! # ⚠️ Misuse warning ⚠️ - read carefully before using
@@ -67,7 +69,7 @@
 //! # async_std::task::block_on(async { test_func().await.unwrap() });
 //! ```
 
-use address::{dangerous_extract_tor_address, safe_extract_tor_address};
+use address::{dangerous_extract, safe_extract};
 use arti_client::{TorClient, TorClientBuilder};
 use futures::{future::BoxFuture, FutureExt};
 use libp2p_core::{transport::TransportError, Multiaddr, Transport};
@@ -115,6 +117,11 @@ pub enum AddressConversion {
 }
 
 impl<R: Runtime, S> TorTransport<R, S> {
+    /// Builds a `TorTransport` from an Arti `TorClientBuilder`.
+    ///
+    /// # Errors
+    ///
+    /// Could return errors emitted from Arti.
     pub fn from_builder(
         builder: TorBuilder<R>,
         conversion_mode: AddressConversion,
@@ -127,18 +134,34 @@ impl<R: Runtime, S> TorTransport<R, S> {
         })
     }
 
+    /// Bootstraps the `TorTransport` into the Tor network.
+    ///
+    /// # Errors
+    ///
+    /// Could return error emitted during bootstrap by Arti.
     pub async fn bootstrap(&self) -> Result<(), TorError> {
         self.client.bootstrap().await
     }
 
+    /// Set the address conversion mode
+    #[must_use]
     pub fn with_address_conversion(mut self, conversion_mode: AddressConversion) -> Self {
         self.conversion_mode = conversion_mode;
         self
     }
 }
 
+#[cfg(all(
+    any(feature = "native-tls", feature = "rustls"),
+    any(feature = "async-std", feature = "tokio")
+))]
 macro_rules! default_constructor {
     () => {
+        /// Creates a bootstrapped `TorTransport`
+        ///
+        /// # Errors
+        ///
+        /// Could return error emitted during Tor bootstrap by Arti.
         pub async fn bootstrapped() -> Result<Self, TorError> {
             let builder = Self::builder();
             let ret = Self::from_builder(builder, AddressConversion::DnsOnly)?;
@@ -242,8 +265,8 @@ where
 
     fn dial(&mut self, addr: Multiaddr) -> Result<Self::Dial, TransportError<Self::Error>> {
         let maybe_tor_addr = match self.conversion_mode {
-            AddressConversion::DnsOnly => safe_extract_tor_address(&addr),
-            AddressConversion::IpAndDns => dangerous_extract_tor_address(&addr),
+            AddressConversion::DnsOnly => safe_extract(&addr),
+            AddressConversion::IpAndDns => dangerous_extract(&addr),
         };
 
         let tor_address = maybe_tor_addr.ok_or(TransportError::MultiaddrNotSupported(addr))?;
