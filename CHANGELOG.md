@@ -1,4 +1,4 @@
-# 0.3.0-alpha [`unreleased`]
+# 0.3.0-alpha
 
 - Updated dependencies: See [PR 6].
   - [`arti-client` to `v0.8`]
