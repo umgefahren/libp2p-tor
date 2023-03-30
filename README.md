@@ -23,7 +23,7 @@ are dealing with.
 
 This won't work:
 ```bash
-cargo add libp2p-community-tor@0.1.0-alpha
+cargo add libp2p-community-tor@0.3.0-alpha
 ```
 
 You have to choose a TLS provider **and** a runtime.
@@ -39,8 +39,8 @@ The runtimes are:
 
 |               | **rustls**                                                       | **native-tls**                                                       |
 |---------------|------------------------------------------------------------------|----------------------------------------------------------------------|
-| **tokio**     | `cargo add libp2p-community-tor@0.1.0-alpha -F tokio,rustls`     | `cargo add libp2p-community-tor@0.1.0-alpha -F tokio,native-tls`     |
-| **async-std** | `cargo add libp2p-community-tor@0.1.0-alpha -F async-std,rustls` | `cargo add libp2p-community-tor@0.1.0-alpha -F async-std,native-tls` |
+| **tokio**     | `cargo add libp2p-community-tor@0.3.0-alpha -F tokio,rustls`     | `cargo add libp2p-community-tor@0.3.0-alpha -F tokio,native-tls`     |
+| **async-std** | `cargo add libp2p-community-tor@0.3.0-alpha -F async-std,rustls` | `cargo add libp2p-community-tor@0.3.0-alpha -F async-std,native-tls` |
 
 ### Example
 ```rust
