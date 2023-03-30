@@ -25,8 +25,8 @@ use std::net::SocketAddr;
 /// "Dangerously" extract a Tor address from the provided [`Multiaddr`].
 ///
 /// See [`DangerouslyIntoTorAddr`] for details around the safety / privacy considerations.
-pub fn dangerous_extract_tor_address(multiaddr: &Multiaddr) -> Option<TorAddr> {
-    if let Some(tor_addr) = safe_extract_tor_address(multiaddr) {
+pub fn dangerous_extract(multiaddr: &Multiaddr) -> Option<TorAddr> {
+    if let Some(tor_addr) = safe_extract(multiaddr) {
         return Some(tor_addr);
     }
 
@@ -42,7 +42,7 @@ pub fn dangerous_extract_tor_address(multiaddr: &Multiaddr) -> Option<TorAddr> {
 /// "Safely" extract a Tor address from the provided [`Multiaddr`].
 ///
 /// See [`IntoTorAddr`] for details around the safety / privacy considerations.
-pub fn safe_extract_tor_address(multiaddr: &Multiaddr) -> Option<TorAddr> {
+pub fn safe_extract(multiaddr: &Multiaddr) -> Option<TorAddr> {
     let mut protocols = multiaddr.into_iter();
 
     let tor_addr = try_to_domain_and_port(&protocols.next()?, &protocols.next()?)?
@@ -89,7 +89,7 @@ mod tests {
 
         let actual = addresses
             .iter()
-            .filter_map(safe_extract_tor_address)
+            .filter_map(safe_extract)
             .collect::<Vec<_>>();
 
         assert_eq!(
@@ -111,7 +111,7 @@ mod tests {
 
         let actual = addresses
             .iter()
-            .filter_map(dangerous_extract_tor_address)
+            .filter_map(dangerous_extract)
             .collect::<Vec<_>>();
 
         assert_eq!(
@@ -133,7 +133,7 @@ mod tests {
 
         let actual = addresses
             .iter()
-            .filter_map(dangerous_extract_tor_address)
+            .filter_map(dangerous_extract)
             .collect::<Vec<_>>();
 
         assert_eq!(
@@ -154,10 +154,7 @@ mod tests {
             "/tcp/10/ip4/1.1.1.1".parse().unwrap(),
         ];
 
-        let all_correct = addresses
-            .iter()
-            .map(safe_extract_tor_address)
-            .all(|res| res.is_none());
+        let all_correct = addresses.iter().map(safe_extract).all(|res| res.is_none());
 
         assert!(
             all_correct,
