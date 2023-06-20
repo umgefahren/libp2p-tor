@@ -18,7 +18,7 @@ tokio-crate = { package = "tokio", version = "1", optional = true, default-featu
 tor-rtcompat = "0.8"
 
 [dev-dependencies]
-libp2p = { version = "0.51", features = ["mplex", "noise", "ping", "yamux", "macros", "async-std"] }
+libp2p = { version = "0.52", features = ["mplex", "noise", "ping", "yamux", "macros", "async-std"] }
 tokio-crate = { package = "tokio", version = "1", features = ["rt", "macros"] }
 async-std-crate = { package = "async-std", version = "1", features = ["attributes"] }
 
