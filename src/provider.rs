@@ -22,10 +22,6 @@ use arti_client::DataStream;
 use futures::{AsyncRead, AsyncWrite};
 use tokio::io::{AsyncRead as TokioAsyncRead, AsyncWrite as TokioAsyncWrite, ReadBuf};
 
-pub trait TorStream: AsyncRead + AsyncWrite + From<DataStream> {}
-
-impl TorStream for DataStream {}
-
 #[derive(Debug)]
 pub struct TokioTorStream {
     inner: DataStream,
@@ -36,8 +32,6 @@ impl From<DataStream> for TokioTorStream {
         Self { inner }
     }
 }
-
-impl TorStream for TokioTorStream {}
 
 impl AsyncRead for TokioTorStream {
     fn poll_read(

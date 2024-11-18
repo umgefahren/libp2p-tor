@@ -40,15 +40,12 @@
 //!
 //! Main entrypoint of the crate: [`TorTransport`]
 
-use arti_client::{DataStream, TorClient, TorClientBuilder};
+use arti_client::{TorClient, TorClientBuilder};
 use futures::future::BoxFuture;
-use futures::FutureExt;
 use libp2p::{
     core::transport::{ListenerId, TransportEvent},
-    tcp::tokio::TcpStream,
-    Multiaddr, PeerId, Transport, TransportError,
+    Multiaddr, Transport, TransportError,
 };
-use provider::TorStream;
 use std::sync::Arc;
 use tor_rtcompat::tokio::TokioRustlsRuntime;
 
@@ -90,6 +87,7 @@ impl TorTransport {
         conversion_mode: AddressConversion,
     ) -> Result<Self, TorError> {
         let client = Arc::new(builder.create_unbootstrapped()?);
+
         Ok(Self {
             client,
             conversion_mode,
@@ -146,11 +144,15 @@ impl Transport for TorTransport {
             AddressConversion::IpAndDns => dangerous_extract(&addr),
         };
 
-        let tor_address = maybe_tor_addr.ok_or(TransportError::MultiaddrNotSupported(addr))?;
+        let tor_address =
+            maybe_tor_addr.ok_or(TransportError::MultiaddrNotSupported(addr.clone()))?;
         let onion_client = self.client.clone();
 
         Ok(Box::pin(async move {
             let stream = onion_client.connect(tor_address).await?;
+
+            tracing::debug!(%addr, "Established connection to peer through Tor");
+
             Ok(stream.into())
         }))
     }
