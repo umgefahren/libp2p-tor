@@ -1,38 +1,23 @@
 [package]
 name = "libp2p-community-tor"
-version = "0.3.0-alpha"
+version = "0.1.0"
 edition = "2021"
+description = "Tor transport for libp2p"
+repository = "https://github.com/hannes-furmans/libp2p-community-tor"
 license = "MIT"
-resolver = "2"
-description = "Tor transport for libp2p."
-repository = "https://github.com/umgefahren/libp2p-tor"
-authors = ["umgefahren <hannes@umgefahren.xyz>"]
+keywords = ["libp2p", "tor", "p2p", "networking"]
+categories = ["network-programming", "asynchronous"]
 
 [dependencies]
-arti-client = { version = "0.24", default-features = false }
-async-std-crate = { package = "async-std", version = "1", optional = true, default-features = false }
+arti-client = "0.24.0"
 futures = "0.3"
-libp2p-core = { version = "0.39" }
-thiserror = "1"
-tokio-crate = { package = "tokio", version = "1", optional = true, default-features = false }
-tor-rtcompat = "0.8"
+libp2p = { version = "0.53", default-features = false, features = ["tokio", "tcp", "tls"] }
+tor-rtcompat = { version = "0.24.0", features = ["tokio", "rustls"] }
+tokio = { version = "1.0", features = ["io-util", "rt", "rt-multi-thread", "macros"] }
 
 [dev-dependencies]
-libp2p = { version = "0.51", features = ["mplex", "noise", "ping", "yamux", "macros", "async-std"] }
-tokio-crate = { package = "tokio", version = "1", features = ["rt", "macros"] }
-async-std-crate = { package = "async-std", version = "1", features = ["attributes"] }
-
-[features]
-tokio = ["arti-client/tokio", "dep:tokio-crate"]
-async-std = ["arti-client/async-std", "dep:async-std-crate"]
-native-tls = ["arti-client/native-tls"]
-rustls = ["arti-client/rustls"]
-
-[[example]]
-name = "ping-onion"
-required-features = ["async-std", "rustls"]
+libp2p = { version = "0.53", default-features = false, features = ["tokio", "noise", "yamux", "ping", "noise", "macros", "tcp", "tls"] }
 
 [package.metadata.docs.rs]
-rustdoc-args = ["--cfg", "docsrs"]
-rustc-args = ["--cfg", "docsrs"]
 all-features = true
+rustdoc-args = ["--cfg", "docsrs"]

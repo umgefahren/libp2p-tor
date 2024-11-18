@@ -20,39 +20,33 @@
 
 use arti_client::DataStream;
 use futures::{AsyncRead, AsyncWrite};
+use tokio::io::{AsyncRead as TokioAsyncRead, AsyncWrite as TokioAsyncWrite, ReadBuf};
 
 pub trait TorStream: AsyncRead + AsyncWrite + From<DataStream> {}
 
 impl TorStream for DataStream {}
 
-#[cfg(feature = "async-std")]
-pub type AsyncStdTorStream = DataStream;
-
-#[cfg(feature = "tokio")]
 #[derive(Debug)]
 pub struct TokioTorStream {
     inner: DataStream,
 }
 
-#[cfg(feature = "tokio")]
 impl From<DataStream> for TokioTorStream {
     fn from(inner: DataStream) -> Self {
         Self { inner }
     }
 }
 
-#[cfg(feature = "tokio")]
 impl TorStream for TokioTorStream {}
 
-#[cfg(feature = "tokio")]
 impl AsyncRead for TokioTorStream {
     fn poll_read(
         mut self: std::pin::Pin<&mut Self>,
         cx: &mut std::task::Context<'_>,
         buf: &mut [u8],
     ) -> std::task::Poll<std::io::Result<usize>> {
-        let mut read_buf = tokio_crate::io::ReadBuf::new(buf);
-        futures::ready!(tokio_crate::io::AsyncRead::poll_read(
+        let mut read_buf = ReadBuf::new(buf);
+        futures::ready!(TokioAsyncRead::poll_read(
             std::pin::Pin::new(&mut self.inner),
             cx,
             &mut read_buf
@@ -61,7 +55,6 @@ impl AsyncRead for TokioTorStream {
     }
 }
 
-#[cfg(feature = "tokio")]
 impl AsyncWrite for TokioTorStream {
     #[inline]
     fn poll_write(
@@ -69,7 +62,7 @@ impl AsyncWrite for TokioTorStream {
         cx: &mut std::task::Context<'_>,
         buf: &[u8],
     ) -> std::task::Poll<std::io::Result<usize>> {
-        tokio_crate::io::AsyncWrite::poll_write(std::pin::Pin::new(&mut self.inner), cx, buf)
+        TokioAsyncWrite::poll_write(std::pin::Pin::new(&mut self.inner), cx, buf)
     }
 
     #[inline]
@@ -77,7 +70,7 @@ impl AsyncWrite for TokioTorStream {
         mut self: std::pin::Pin<&mut Self>,
         cx: &mut std::task::Context<'_>,
     ) -> std::task::Poll<std::io::Result<()>> {
-        tokio_crate::io::AsyncWrite::poll_flush(std::pin::Pin::new(&mut self.inner), cx)
+        TokioAsyncWrite::poll_flush(std::pin::Pin::new(&mut self.inner), cx)
     }
 
     #[inline]
@@ -85,7 +78,7 @@ impl AsyncWrite for TokioTorStream {
         mut self: std::pin::Pin<&mut Self>,
         cx: &mut std::task::Context<'_>,
     ) -> std::task::Poll<std::io::Result<()>> {
-        tokio_crate::io::AsyncWrite::poll_shutdown(std::pin::Pin::new(&mut self.inner), cx)
+        TokioAsyncWrite::poll_shutdown(std::pin::Pin::new(&mut self.inner), cx)
     }
 
     #[inline]
@@ -94,10 +87,6 @@ impl AsyncWrite for TokioTorStream {
         cx: &mut std::task::Context<'_>,
         bufs: &[std::io::IoSlice<'_>],
     ) -> std::task::Poll<std::io::Result<usize>> {
-        tokio_crate::io::AsyncWrite::poll_write_vectored(
-            std::pin::Pin::new(&mut self.inner),
-            cx,
-            bufs,
-        )
+        TokioAsyncWrite::poll_write_vectored(std::pin::Pin::new(&mut self.inner), cx, bufs)
     }
 }
