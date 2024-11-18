@@ -92,7 +92,18 @@ pub use provider::AsyncStdTorStream;
 pub type TorError = arti_client::Error;
 
 #[derive(Clone)]
-pub struct TorTransport<R: Runtime, S> {
+pub struct TorTransport<R, S>
+where
+    R: Runtime
+        + BlockOn
+        + SleepProvider
+        + UdpProvider
+        + CoarseTimeProvider
+        + NetStreamProvider
+        + NetStreamProvider<std::os::unix::net::SocketAddr>
+        + TlsProvider<S>,
+    S: TorStream,
+{
     // client is in an Arc, because without it the [`Transport::dial`] method can't be implemented,
     // due to lifetime issues. With the, eventual, stabilization of static async traits this issue
     // will be resolved.
