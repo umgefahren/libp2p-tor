@@ -2,18 +2,18 @@
 name = "libp2p-community-tor"
 version = "0.4.0"
 edition = "2021"
-description = "Tor transport for libp2p"
-repository = "https://github.com/hannes-furmans/libp2p-community-tor"
 license = "MIT"
-keywords = ["libp2p", "tor", "p2p", "networking"]
-categories = ["network-programming", "asynchronous"]
+resolver = "2"
+description = "Tor transport for libp2p."
+repository = "https://github.com/umgefahren/libp2p-tor"
+authors = ["umgefahren <hannes@umgefahren.xyz>"]
 
 [dependencies]
 arti-client = "0.24.0"
 futures = "0.3"
-libp2p = { version = "0.53", default-features = false, features = ["tokio", "tcp", "tls"] }
+libp2p = { version = "^0.53", default-features = false, features = ["tokio", "tcp", "tls"] }
 tor-rtcompat = { version = "0.24.0", features = ["tokio", "rustls"] }
-tokio = { version = "1.0", features = ["io-util", "rt", "rt-multi-thread", "macros"] }
+tokio = { version = "1.0", features = ["macros"] }
 tracing = "0.1.40"
 
 [dev-dependencies]
