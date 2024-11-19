@@ -38,7 +38,18 @@
 //! This crate uses tokio with rustls for its runtime and TLS implementation.
 //! No other combinations are supported.
 //!
-//! Main entrypoint of the crate: [`TorTransport`]
+//! //! ## Example
+//! ```no_run
+//! use libp2p_core::Transport;
+//! # async fn test_func() -> Result<(), Box<dyn std::error::Error>> {
+//! let address = "/dns/www.torproject.org/tcp/1000".parse()?;
+//! let mut transport = libp2p_community_tor::TorTransport::bootstrapped().await?;
+//! // we have achieved tor connection
+//! let _conn = transport.dial(address)?.await?;
+//! # Ok(())
+//! # }
+//! # tokio_test::block_on(test_func());
+//! ```
 
 use arti_client::{TorClient, TorClientBuilder};
 use futures::future::BoxFuture;
