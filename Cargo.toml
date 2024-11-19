@@ -18,6 +18,7 @@ tracing = "0.1.40"
 
 [dev-dependencies]
 libp2p = { version = "0.53", default-features = false, features = ["tokio", "noise", "yamux", "ping", "noise", "macros", "tcp", "tls"] }
+tokio-test = "0.4.4"
 
 [[example]]
 name = "ping-onion"

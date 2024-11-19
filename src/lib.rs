@@ -40,7 +40,7 @@
 //!
 //! //! ## Example
 //! ```no_run
-//! use libp2p_core::Transport;
+//! use libp2p::core::Transport;
 //! # async fn test_func() -> Result<(), Box<dyn std::error::Error>> {
 //! let address = "/dns/www.torproject.org/tcp/1000".parse()?;
 //! let mut transport = libp2p_community_tor::TorTransport::bootstrapped().await?;
