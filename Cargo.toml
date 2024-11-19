@@ -19,6 +19,9 @@ tracing = "0.1.40"
 [dev-dependencies]
 libp2p = { version = "0.53", default-features = false, features = ["tokio", "noise", "yamux", "ping", "noise", "macros", "tcp", "tls"] }
 
+[[example]]
+name = "ping-onion"
+
 [package.metadata.docs.rs]
 all-features = true
 rustdoc-args = ["--cfg", "docsrs"]
