@@ -9,7 +9,7 @@ repository = "https://github.com/umgefahren/libp2p-tor"
 authors = ["umgefahren <hannes@umgefahren.xyz>"]
 
 [dependencies]
-arti-client = "0.24.0"
+arti-client = { version = "0.24", default-features = false, features = ["tokio", "rustls"] }
 futures = "0.3"
 libp2p = { version = "^0.53", default-features = false, features = ["tokio", "tcp", "tls"] }
 tor-rtcompat = { version = "0.24.0", features = ["tokio", "rustls"] }
