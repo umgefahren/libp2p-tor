@@ -121,6 +121,17 @@ impl TorTransport {
         })
     }
 
+    /// Builds a `TorTransport` from an existing Arti `TorClient`.
+    pub fn from_client(
+        client: Arc<TorClient<TokioRustlsRuntime>>,
+        conversion_mode: AddressConversion,
+    ) -> Self {
+        Self {
+            client,
+            conversion_mode,
+        }
+    }
+
     /// Bootstraps the `TorTransport` into the Tor network.
     ///
     /// # Errors
@@ -146,11 +157,11 @@ impl Transport for TorTransport {
     fn listen_on(
         &mut self,
         _id: ListenerId,
-        _addr: Multiaddr,
+        addr: Multiaddr,
     ) -> Result<(), TransportError<Self::Error>> {
         // although this address might be supported, this is returned in order to not provoke an
         // error when trying to listen on this transport.
-        Err(TransportError::MultiaddrNotSupported(_addr))
+        Err(TransportError::MultiaddrNotSupported(addr))
     }
 
     fn remove_listener(&mut self, _id: ListenerId) -> bool {
