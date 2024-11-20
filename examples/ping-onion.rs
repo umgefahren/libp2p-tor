@@ -55,6 +55,30 @@ use libp2p::{
 use libp2p_community_tor::{AddressConversion, TorTransport};
 use std::error::Error;
 
+async fn onion_transport(
+    keypair: identity::Keypair,
+) -> Result<
+    libp2p::core::transport::Boxed<(PeerId, libp2p::core::muxing::StreamMuxerBox)>,
+    Box<dyn Error>,
+> {
+    let transport = TorTransport::bootstrapped()
+        .await?
+        .with_address_conversion(AddressConversion::IpAndDns)
+        .boxed();
+
+    let auth_upgrade = noise::Config::new(&keypair)?;
+    let multiplex_upgrade = yamux::Config::default();
+
+    let transport = transport
+        .upgrade(Version::V1)
+        .authenticate(auth_upgrade)
+        .multiplex(multiplex_upgrade)
+        .map(|(peer, muxer), _| (peer, StreamMuxerBox::new(muxer)))
+        .boxed();
+
+    Ok(transport)
+}
+
 #[derive(NetworkBehaviour)]
 struct Behaviour {
     ping: libp2p::ping::Behaviour,
@@ -64,22 +88,10 @@ struct Behaviour {
 async fn main() -> Result<(), Box<dyn Error>> {
     let local_key = identity::Keypair::generate_ed25519();
     let local_peer_id = PeerId::from(local_key.public());
+
     println!("Local peer id: {local_peer_id}");
 
-    let transport = TorTransport::bootstrapped()
-        .await?
-        .with_address_conversion(AddressConversion::IpAndDns)
-        .boxed();
-
-    let auth_upgrade = noise::Config::new(&local_key)?;
-    let multiplex_upgrade = yamux::Config::default();
-
-    let transport = transport
-        .upgrade(Version::V1)
-        .authenticate(auth_upgrade)
-        .multiplex(multiplex_upgrade)
-        .map(|(peer, muxer), _| (peer, StreamMuxerBox::new(muxer)))
-        .boxed();
+    let transport = onion_transport(local_key).await?;
 
     let mut swarm = SwarmBuilder::with_new_identity()
         .with_tokio()
