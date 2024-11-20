@@ -125,6 +125,14 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     loop {
         match swarm.select_next_some().await {
+            SwarmEvent::ConnectionEstablished {
+                endpoint, peer_id, ..
+            } => {
+                println!("Connection established with {peer_id} on {endpoint:?}");
+            }
+            SwarmEvent::OutgoingConnectionError { peer_id, error, .. } => {
+                println!("Outgoing connection error with {peer_id:?}: {error:?}");
+            }
             SwarmEvent::NewListenAddr { address, .. } => println!("Listening on {address:?}"),
             SwarmEvent::Behaviour(event) => println!("{event:?}"),
             _ => {}
