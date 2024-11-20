@@ -75,7 +75,7 @@ pub struct TorTransport {
     // will be resolved.
     client: Arc<TorClient<TokioRustlsRuntime>>,
     /// The used conversion mode to resolve addresses. One probably shouldn't access this directly.
-    /// The usage of [TorTransport::with_address_conversion] at construction is recommended.
+    /// The usage of [`TorTransport::with_address_conversion`] at construction is recommended.
     pub conversion_mode: AddressConversion,
 }
 
@@ -91,6 +91,10 @@ pub enum AddressConversion {
 }
 
 impl TorTransport {
+    /// Creates a new `TorClientBuilder`.
+    ///
+    /// # Panics
+    /// Panics if the current runtime is not a `TokioRustlsRuntime`.
     pub fn builder() -> TorClientBuilder<TokioRustlsRuntime> {
         let runtime =
             TokioRustlsRuntime::current().expect("Couldn't get the current tokio rustls runtime");
@@ -103,14 +107,17 @@ impl TorTransport {
     /// Could return error emitted during Tor bootstrap by Arti.
     pub async fn bootstrapped() -> Result<Self, TorError> {
         let builder = Self::builder();
-        let ret = Self::from_builder(builder, AddressConversion::DnsOnly)?;
+        let ret = Self::from_builder(&builder, AddressConversion::DnsOnly)?;
         ret.bootstrap().await?;
         Ok(ret)
     }
 
-    /// Builds a `TorTransport` from an Arti `TorClientBuilder`.
+    /// Builds a `TorTransport` from an Arti `TorClientBuilder` but does not bootstrap it.
+    ///
+    /// # Errors
+    /// Could return error emitted during creation of the `TorClient`.
     pub fn from_builder(
-        builder: TorClientBuilder<TokioRustlsRuntime>,
+        builder: &TorClientBuilder<TokioRustlsRuntime>,
         conversion_mode: AddressConversion,
     ) -> Result<Self, TorError> {
         let client = Arc::new(builder.create_unbootstrapped()?);
