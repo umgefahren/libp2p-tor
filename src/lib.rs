@@ -70,8 +70,27 @@ pub type TorError = arti_client::Error;
 
 #[derive(Clone)]
 pub struct TorTransport {
+    // client is in an Arc, because without it the [`Transport::dial`] method can't be implemented,
+    // due to lifetime issues. With the, eventual, stabilization of static async traits this issue
+    // will be resolved.
     client: Arc<TorClient<TokioRustlsRuntime>>,
+    /// The used conversion mode to resolve addresses. One probably shouldn't access this directly.
+    /// The usage of [TorTransport::with_address_conversion] at construction is recommended.
     pub conversion_mode: AddressConversion,
+}
+
+/// Configure the onion transport from here.
+pub type TorBuilder<TokioRustlsRuntime> = TorClientBuilder<TokioRustlsRuntime>;
+
+/// Mode of address conversion.
+/// Refer tor [arti_client::TorAddr](https://docs.rs/arti-client/latest/arti_client/struct.TorAddr.html) for details
+#[derive(Debug, Clone, Copy, Hash, Default, PartialEq, Eq, PartialOrd, Ord)]
+pub enum AddressConversion {
+    /// Uses only dns for address resolution (default).
+    #[default]
+    DnsOnly,
+    /// uses ip and dns for addresses
+    IpAndDns,
 }
 
 impl TorTransport {
@@ -106,6 +125,9 @@ impl TorTransport {
     }
 
     /// Bootstraps the `TorTransport` into the Tor network.
+    ///
+    /// # Errors
+    /// Could return error emitted during bootstrap by Arti.
     pub async fn bootstrap(&self) -> Result<(), TorError> {
         self.client.bootstrap().await
     }
@@ -116,19 +138,6 @@ impl TorTransport {
         self.conversion_mode = conversion_mode;
         self
     }
-}
-
-/// Configure the onion transport from here.
-pub type TorBuilder<R> = TorClientBuilder<R>;
-
-/// Mode of address conversion
-#[derive(Debug, Clone, Copy, Hash, Default, PartialEq, Eq, PartialOrd, Ord)]
-pub enum AddressConversion {
-    /// Uses only dns for address resolution (default).
-    #[default]
-    DnsOnly,
-    /// uses ip and dns for addresses
-    IpAndDns,
 }
 
 impl Transport for TorTransport {
@@ -142,6 +151,8 @@ impl Transport for TorTransport {
         _id: ListenerId,
         _addr: Multiaddr,
     ) -> Result<(), TransportError<Self::Error>> {
+        // although this address might be supported, this is returned in order to not provoke an
+        // error when trying to listen on this transport.
         Err(TransportError::MultiaddrNotSupported(_addr))
     }
 
@@ -183,6 +194,7 @@ impl Transport for TorTransport {
         self: std::pin::Pin<&mut Self>,
         _cx: &mut std::task::Context<'_>,
     ) -> std::task::Poll<TransportEvent<Self::ListenerUpgrade, Self::Error>> {
+        // pending is returned here because this transport doesn't support listening, yet
         std::task::Poll::Pending
     }
 }

@@ -79,11 +79,6 @@ async fn onion_transport(
     Ok(transport)
 }
 
-#[derive(NetworkBehaviour)]
-struct Behaviour {
-    ping: libp2p::ping::Behaviour,
-}
-
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     let local_key = identity::Keypair::generate_ed25519();
@@ -138,4 +133,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
             _ => {}
         }
     }
+}
+
+/// Our network behaviour.
+#[derive(NetworkBehaviour)]
+struct Behaviour {
+    ping: libp2p::ping::Behaviour,
 }
