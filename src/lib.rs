@@ -38,7 +38,7 @@
 //! This crate uses tokio with rustls for its runtime and TLS implementation.
 //! No other combinations are supported.
 //!
-//! //! ## Example
+//! ## Example
 //! ```no_run
 //! use libp2p::core::Transport;
 //! # async fn test_func() -> Result<(), Box<dyn std::error::Error>> {
