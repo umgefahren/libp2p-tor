@@ -43,78 +43,100 @@
 //! The two nodes establish a connection, negotiate the ping protocol
 //! and begin pinging each other over Tor.
 
-use async_std_crate as async_std;
-use futures::prelude::*;
-use libp2p::swarm::{keep_alive, NetworkBehaviour, SwarmBuilder, SwarmEvent};
-use libp2p::{core::upgrade, identity, mplex, noise, ping, yamux, Multiaddr, PeerId, Transport};
-use libp2p_community_tor::{AddressConversion, AsyncStdRustlsTorTransport};
+use futures::StreamExt;
+use libp2p::core::upgrade::Version;
+use libp2p::Transport;
+use libp2p::{
+    core::muxing::StreamMuxerBox,
+    identity, noise,
+    swarm::{NetworkBehaviour, SwarmEvent},
+    yamux, Multiaddr, PeerId, SwarmBuilder,
+};
+use libp2p_community_tor::{AddressConversion, TorTransport};
 use std::error::Error;
 
 async fn onion_transport(
     keypair: identity::Keypair,
 ) -> Result<
-    libp2p_core::transport::Boxed<(PeerId, libp2p_core::muxing::StreamMuxerBox)>,
+    libp2p::core::transport::Boxed<(PeerId, libp2p::core::muxing::StreamMuxerBox)>,
     Box<dyn Error>,
 > {
-    use std::time::Duration;
-
-    let transport = AsyncStdRustlsTorTransport::bootstrapped()
+    let transport = TorTransport::bootstrapped()
         .await?
-        .with_address_conversion(AddressConversion::IpAndDns);
-    Ok(transport
-        .upgrade(upgrade::Version::V1)
-        .authenticate(
-            noise::NoiseAuthenticated::xx(&keypair)
-                .expect("Signing libp2p-noise static DH keypair failed."),
-        )
-        .multiplex(upgrade::SelectUpgrade::new(
-            yamux::YamuxConfig::default(),
-            mplex::MplexConfig::default(),
-        ))
-        .timeout(Duration::from_secs(20))
-        .boxed())
+        .with_address_conversion(AddressConversion::IpAndDns)
+        .boxed();
+
+    let auth_upgrade = noise::Config::new(&keypair)?;
+    let multiplex_upgrade = yamux::Config::default();
+
+    let transport = transport
+        .upgrade(Version::V1)
+        .authenticate(auth_upgrade)
+        .multiplex(multiplex_upgrade)
+        .map(|(peer, muxer), _| (peer, StreamMuxerBox::new(muxer)))
+        .boxed();
+
+    Ok(transport)
 }
 
-#[async_std::main]
+#[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
-    let addr = std::env::args().nth(1).expect("no multiaddr given");
     let local_key = identity::Keypair::generate_ed25519();
     let local_peer_id = PeerId::from(local_key.public());
-    println!("Local peer id: {:?}", local_peer_id);
+
+    println!("Local peer id: {local_peer_id}");
 
     let transport = onion_transport(local_key).await?;
 
-    let mut swarm =
-        SwarmBuilder::with_async_std_executor(transport, Behaviour::default(), local_peer_id)
-            .build();
+    let mut swarm = SwarmBuilder::with_new_identity()
+        .with_tokio()
+        .with_tcp(
+            Default::default(),
+            (libp2p::tls::Config::new, libp2p::noise::Config::new),
+            libp2p::yamux::Config::default,
+        )
+        .unwrap()
+        .with_other_transport(|_| transport)
+        .unwrap()
+        .with_behaviour(|_| Behaviour {
+            ping: libp2p::ping::Behaviour::default(),
+        })
+        .unwrap()
+        .build();
+
+    // Tell the swarm to listen on all interfaces and a random, OS-assigned
+    // port.
+    swarm
+        .listen_on("/ip4/0.0.0.0/tcp/0".parse().unwrap())
+        .unwrap();
 
     // Dial the peer identified by the multi-address given as the second
     // command-line argument, if any.
-    let remote: Multiaddr = addr.parse()?;
-    swarm.dial(remote)?;
-    println!("Dialed {}", addr);
+    if let Some(addr) = std::env::args().nth(1) {
+        let remote: Multiaddr = addr.parse()?;
+        swarm.dial(remote)?;
+        println!("Dialed {addr}")
+    }
 
     loop {
         match swarm.select_next_some().await {
-            SwarmEvent::ConnectionEstablished { endpoint, .. } => {
-                let endpoint_addr = endpoint.get_remote_address();
-                println!("Connection established to {:?}", endpoint_addr);
+            SwarmEvent::ConnectionEstablished {
+                endpoint, peer_id, ..
+            } => {
+                println!("Connection established with {peer_id} on {endpoint:?}");
             }
-            SwarmEvent::OutgoingConnectionError { error, .. } => {
-                println!("Error establishing outgoing connection: {:?}", error)
+            SwarmEvent::OutgoingConnectionError { peer_id, error, .. } => {
+                println!("Outgoing connection error with {peer_id:?}: {error:?}");
             }
-            SwarmEvent::Behaviour(event) => println!("{:?}", event),
+            SwarmEvent::NewListenAddr { address, .. } => println!("Listening on {address:?}"),
+            SwarmEvent::Behaviour(event) => println!("{event:?}"),
             _ => {}
         }
     }
 }
 
 /// Our network behaviour.
-///
-/// For illustrative purposes, this includes the [`KeepAlive`](behaviour::KeepAlive) behaviour so a continuous sequence of
-/// pings can be observed.
-#[derive(NetworkBehaviour, Default)]
+#[derive(NetworkBehaviour)]
 struct Behaviour {
-    keep_alive: keep_alive::Behaviour,
-    ping: ping::Behaviour,
+    ping: libp2p::ping::Behaviour,
 }

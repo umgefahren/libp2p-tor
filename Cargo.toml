@@ -1,6 +1,6 @@
 [package]
 name = "libp2p-community-tor"
-version = "0.3.0-alpha"
+version = "0.4.1"
 edition = "2021"
 license = "MIT"
 resolver = "2"
@@ -10,29 +10,19 @@ authors = ["umgefahren <hannes@umgefahren.xyz>"]
 
 [dependencies]
 arti-client = { version = "0.24", default-features = false, features = ["tokio", "rustls"] }
-async-std-crate = { package = "async-std", version = "1", optional = true, default-features = false }
 futures = "0.3"
-libp2p-core = { version = "0.39" }
-thiserror = "1"
-tokio-crate = { package = "tokio", version = "1", optional = true, default-features = false }
-tor-rtcompat = "0.8"
+libp2p = { version = "^0.53", default-features = false, features = ["tokio", "tcp", "tls"] }
+tor-rtcompat = { version = "0.24.0", features = ["tokio", "rustls"] }
+tokio = { version = "1.0", features = ["macros"] }
+tracing = "0.1.40"
 
 [dev-dependencies]
-libp2p = { version = "0.51", features = ["mplex", "noise", "ping", "yamux", "macros", "async-std"] }
-tokio-crate = { package = "tokio", version = "1", features = ["rt", "macros"] }
-async-std-crate = { package = "async-std", version = "1", features = ["attributes"] }
-
-[features]
-tokio = ["arti-client/tokio", "dep:tokio-crate"]
-async-std = ["arti-client/async-std", "dep:async-std-crate"]
-native-tls = ["arti-client/native-tls"]
-rustls = ["arti-client/rustls"]
+libp2p = { version = "0.53", default-features = false, features = ["tokio", "noise", "yamux", "ping", "macros", "tcp", "tls"] }
+tokio-test = "0.4.4"
 
 [[example]]
 name = "ping-onion"
-required-features = ["async-std", "rustls"]
 
 [package.metadata.docs.rs]
-rustdoc-args = ["--cfg", "docsrs"]
-rustc-args = ["--cfg", "docsrs"]
 all-features = true
+rustdoc-args = ["--cfg", "docsrs"]

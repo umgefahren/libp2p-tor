@@ -19,7 +19,7 @@
 // DEALINGS IN THE SOFTWARE.
 
 use arti_client::{DangerouslyIntoTorAddr, IntoTorAddr, TorAddr};
-use libp2p_core::{multiaddr::Protocol, Multiaddr};
+use libp2p::{core::multiaddr::Protocol, Multiaddr};
 use std::net::SocketAddr;
 
 /// "Dangerously" extract a Tor address from the provided [`Multiaddr`].
