@@ -79,9 +79,6 @@ pub struct TorTransport {
     pub conversion_mode: AddressConversion,
 }
 
-/// Configure the onion transport from here.
-pub type TorBuilder<TokioRustlsRuntime> = TorClientBuilder<TokioRustlsRuntime>;
-
 /// Mode of address conversion.
 /// Refer tor [arti_client::TorAddr](https://docs.rs/arti-client/latest/arti_client/struct.TorAddr.html) for details
 #[derive(Debug, Clone, Copy, Hash, Default, PartialEq, Eq, PartialOrd, Ord)]
@@ -94,7 +91,7 @@ pub enum AddressConversion {
 }
 
 impl TorTransport {
-    pub fn builder() -> TorBuilder<TokioRustlsRuntime> {
+    pub fn builder() -> TorClientBuilder<TokioRustlsRuntime> {
         let runtime =
             TokioRustlsRuntime::current().expect("Couldn't get the current tokio rustls runtime");
         TorClient::with_runtime(runtime)
@@ -113,7 +110,7 @@ impl TorTransport {
 
     /// Builds a `TorTransport` from an Arti `TorClientBuilder`.
     pub fn from_builder(
-        builder: TorBuilder<TokioRustlsRuntime>,
+        builder: TorClientBuilder<TokioRustlsRuntime>,
         conversion_mode: AddressConversion,
     ) -> Result<Self, TorError> {
         let client = Arc::new(builder.create_unbootstrapped()?);
