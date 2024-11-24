@@ -276,12 +276,6 @@ impl StatusExt for OnionServiceStatus {
         match self.state() {
             tor_hsservice::status::State::Running => true,
             tor_hsservice::status::State::DegradedReachable => true,
-            tor_hsservice::status::State::Bootstrapping => true, // TODO: Return false here, only enabled for testing
-            tor_hsservice::status::State::Shutdown => false,
-            tor_hsservice::status::State::DegradedUnreachable => false,
-            tor_hsservice::status::State::Recovering => false,
-            tor_hsservice::status::State::Broken => false,
-            // TODO: Why do we need this?
             _ => false,
         }
     }
@@ -314,20 +308,17 @@ impl Transport for TorTransport {
         // Find the running onion service that matches the requested address
         // If we find it, remove it from [`services`] and insert it into [`listeners`]
 
-        // TODO: drain(..) is not a good idea. We should keep the services around so we can reuse them later
-        let Some((service, request_stream)) = self
+        let position = self
             .services
-            .drain(..)
-            .filter(|(service, _)| {
-                service
-                    .onion_name()
-                    .and_then(|name| Some(name.to_multiaddr(address.port())))
-                    == Some(onion_address.clone())
+            .iter()
+            .position(|(service, _)| {
+                service.onion_name().map_or(false, |name| {
+                    name.to_multiaddr(address.port()) == onion_address
+                })
             })
-            .next()
-        else {
-            return Err(TransportError::MultiaddrNotSupported(onion_address.clone()));
-        };
+            .ok_or_else(|| TransportError::MultiaddrNotSupported(onion_address.clone()))?;
+
+        let (service, request_stream) = self.services.remove(position);
 
         let status_stream = Box::pin(service.status_events());
 
