@@ -53,12 +53,30 @@
 
 use arti_client::{TorClient, TorClientBuilder};
 use futures::future::BoxFuture;
+use futures::stream::BoxStream;
+use libp2p::multiaddr::Protocol;
 use libp2p::{
     core::transport::{ListenerId, TransportEvent},
     Multiaddr, Transport, TransportError,
 };
+use std::collections::HashMap;
+use std::pin::Pin;
+use std::str::FromStr;
 use std::sync::Arc;
+use std::task::{Context, Poll};
+use thiserror::Error;
+use tor_hsservice::handle_rend_requests;
+use tor_hsservice::status::OnionServiceStatus;
+use tor_hsservice::StreamRequest;
 use tor_rtcompat::tokio::TokioRustlsRuntime;
+
+// We only need these imports if the `listen-onion-service` feature is enabled
+#[cfg(feature = "listen-onion-service")]
+use tor_cell::relaycell::msg::{Connected, End, EndReason};
+#[cfg(feature = "listen-onion-service")]
+use tor_hsservice::{HsId, OnionServiceConfig, RunningOnionService};
+#[cfg(feature = "listen-onion-service")]
+use tor_proto::stream::IncomingStreamRequest;
 
 mod address;
 mod provider;
@@ -68,26 +86,53 @@ pub use provider::TokioTorStream;
 
 pub type TorError = arti_client::Error;
 
-#[derive(Clone)]
-pub struct TorTransport {
-    // client is in an Arc, because without it the [`Transport::dial`] method can't be implemented,
-    // due to lifetime issues. With the, eventual, stabilization of static async traits this issue
-    // will be resolved.
-    client: Arc<TorClient<TokioRustlsRuntime>>,
-    /// The used conversion mode to resolve addresses. One probably shouldn't access this directly.
-    /// The usage of [`TorTransport::with_address_conversion`] at construction is recommended.
-    pub conversion_mode: AddressConversion,
+type PendingUpgrade = BoxFuture<'static, Result<TokioTorStream, TorTransportError>>;
+#[cfg(feature = "listen-onion-service")]
+type OnionServiceStream = BoxStream<'static, StreamRequest>;
+#[cfg(feature = "listen-onion-service")]
+type OnionServiceStatusStream = BoxStream<'static, OnionServiceStatus>;
+
+/// Struct representing an onion address we are listening on for libp2p connections.
+#[cfg(feature = "listen-onion-service")]
+struct TorListener {
+    #[allow(dead_code)] // We need to own this to keep the RunningOnionService alive
+    /// The onion service we are listening on
+    service: Arc<RunningOnionService>,
+    /// The stream of status updates for the onion service
+    status_stream: OnionServiceStatusStream,
+    /// The stream incoming [`StreamRequest`]s
+    request_stream: OnionServiceStream,
+
+    /// The port we are listening on
+    port: u16,
+    /// The onion address we are listening on
+    onion_address: Multiaddr,
 }
 
 /// Mode of address conversion.
 /// Refer tor [arti_client::TorAddr](https://docs.rs/arti-client/latest/arti_client/struct.TorAddr.html) for details
 #[derive(Debug, Clone, Copy, Hash, Default, PartialEq, Eq, PartialOrd, Ord)]
 pub enum AddressConversion {
-    /// Uses only dns for address resolution (default).
+    /// Uses only DNS for address resolution (default).
     #[default]
     DnsOnly,
-    /// uses ip and dns for addresses
+    /// Uses IP and DNS for addresses.
     IpAndDns,
+}
+
+pub struct TorTransport {
+    pub conversion_mode: AddressConversion,
+
+    /// The Tor client.
+    client: Arc<TorClient<TokioRustlsRuntime>>,
+
+    /// Onion services we are listening on.
+    #[cfg(feature = "listen-onion-service")]
+    listeners: HashMap<ListenerId, TorListener>,
+
+    /// Onion services we are running but currently not listening on
+    #[cfg(feature = "listen-onion-service")]
+    services: Vec<(Arc<RunningOnionService>, OnionServiceStream)>,
 }
 
 impl TorTransport {
@@ -122,10 +167,7 @@ impl TorTransport {
     ) -> Result<Self, TorError> {
         let client = Arc::new(builder.create_unbootstrapped()?);
 
-        Ok(Self {
-            client,
-            conversion_mode,
-        })
+        Ok(Self::from_client(client, conversion_mode))
     }
 
     /// Builds a `TorTransport` from an existing Arti `TorClient`.
@@ -136,6 +178,10 @@ impl TorTransport {
         Self {
             client,
             conversion_mode,
+            #[cfg(feature = "listen-onion-service")]
+            listeners: HashMap::new(),
+            #[cfg(feature = "listen-onion-service")]
+            services: Vec::new(),
         }
     }
 
@@ -153,25 +199,166 @@ impl TorTransport {
         self.conversion_mode = conversion_mode;
         self
     }
+
+    /// Call this function to instruct the transport to listen on a specific onion address
+    /// You need to call this function **before** calling `listen_on`
+    ///
+    /// # Returns
+    /// Returns the Multiaddr of the onion address that the transport can be instructed to listen on
+    /// To actually listen on the address, you need to call [`listen_on`] with the returned address
+    #[cfg(feature = "listen-onion-service")]
+    pub fn add_onion_service(
+        &mut self,
+        svc_cfg: OnionServiceConfig,
+        port: u16,
+    ) -> anyhow::Result<Multiaddr> {
+        let (service, request_stream) = self.client.launch_onion_service(svc_cfg)?;
+        let request_stream = Box::pin(handle_rend_requests(request_stream));
+
+        let multiaddr = service
+            .onion_name()
+            .ok_or_else(|| anyhow::anyhow!("Onion service has no nickname"))?
+            .to_multiaddr(port);
+
+        self.services.push((service, request_stream));
+
+        Ok(multiaddr)
+    }
+}
+
+#[derive(Debug, Error)]
+pub enum TorTransportError {
+    #[error(transparent)]
+    Client(#[from] TorError),
+    #[cfg(feature = "listen-onion-service")]
+    #[error(transparent)]
+    Service(#[from] tor_hsservice::ClientError),
+    #[cfg(feature = "listen-onion-service")]
+    #[error("Stream closed before receiving data")]
+    StreamClosed,
+    #[cfg(feature = "listen-onion-service")]
+    #[error("Stream port does not match listener port")]
+    StreamPortMismatch,
+    #[cfg(feature = "listen-onion-service")]
+    #[error("Onion service is broken")]
+    Broken,
+}
+
+#[cfg(feature = "listen-onion-service")]
+trait HsIdExt {
+    fn to_multiaddr(&self, port: u16) -> Multiaddr;
+}
+
+#[cfg(feature = "listen-onion-service")]
+impl HsIdExt for HsId {
+    /// Convert an HsId to a Multiaddr
+    fn to_multiaddr(&self, port: u16) -> Multiaddr {
+        let onion_domain = self.to_string();
+        let onion_without_dot_onion = onion_domain
+            .split(".")
+            .nth(0)
+            .expect("Display formatting of HsId to contain .onion suffix");
+        let multiaddress_string = format!("/onion3/{}:{}", onion_without_dot_onion, port);
+
+        Multiaddr::from_str(&multiaddress_string)
+            .expect("A valid onion address to be convertible to a Multiaddr")
+    }
+}
+
+trait StatusExt {
+    fn is_reachable(&self) -> bool;
+    fn is_broken(&self) -> bool;
+}
+
+impl StatusExt for OnionServiceStatus {
+    /// Returns true if the onion service is reachable
+    fn is_reachable(&self) -> bool {
+        match self.state() {
+            tor_hsservice::status::State::Running => true,
+            tor_hsservice::status::State::DegradedReachable => true,
+            tor_hsservice::status::State::Bootstrapping => true, // TODO: Return false here, only enabled for testing
+            tor_hsservice::status::State::Shutdown => false,
+            tor_hsservice::status::State::DegradedUnreachable => false,
+            tor_hsservice::status::State::Recovering => false,
+            tor_hsservice::status::State::Broken => false,
+            // TODO: Why do we need this?
+            _ => false,
+        }
+    }
+
+    fn is_broken(&self) -> bool {
+        matches!(self.state(), tor_hsservice::status::State::Broken)
+    }
 }
 
 impl Transport for TorTransport {
     type Output = TokioTorStream;
-    type Error = TorError;
+    type Error = TorTransportError;
     type Dial = BoxFuture<'static, Result<Self::Output, Self::Error>>;
-    type ListenerUpgrade = futures::future::Pending<Result<Self::Output, Self::Error>>;
+    type ListenerUpgrade = PendingUpgrade;
 
     fn listen_on(
         &mut self,
-        _id: ListenerId,
-        addr: Multiaddr,
+        id: ListenerId,
+        onion_address: Multiaddr,
     ) -> Result<(), TransportError<Self::Error>> {
-        // although this address might be supported, this is returned in order to not provoke an
-        // error when trying to listen on this transport.
-        Err(TransportError::MultiaddrNotSupported(addr))
+        // If the `listen-onion-service` feature is not enabled, immediately return an error
+        #[cfg(not(feature = "listen-onion-service"))]
+        return Err(TransportError::MultiaddrNotSupported(onion_address.clone()));
+
+        // If the address is not an onion3 address, return an error
+        let Some(Protocol::Onion3(address)) = onion_address.into_iter().nth(0) else {
+            return Err(TransportError::MultiaddrNotSupported(onion_address.clone()));
+        };
+
+        // Find the running onion service that matches the requested address
+        // If we find it, remove it from [`services`] and insert it into [`listeners`]
+
+        // TODO: drain(..) is not a good idea. We should keep the services around so we can reuse them later
+        let Some((service, request_stream)) = self
+            .services
+            .drain(..)
+            .filter(|(service, _)| {
+                service
+                    .onion_name()
+                    .and_then(|name| Some(name.to_multiaddr(address.port())))
+                    == Some(onion_address.clone())
+            })
+            .next()
+        else {
+            return Err(TransportError::MultiaddrNotSupported(onion_address.clone()));
+        };
+
+        let status_stream = Box::pin(service.status_events());
+
+        self.listeners.insert(
+            id,
+            TorListener {
+                service,
+                request_stream,
+                onion_address: onion_address.clone(),
+                port: address.port(),
+                status_stream,
+            },
+        );
+
+        return Ok(());
     }
 
-    fn remove_listener(&mut self, _id: ListenerId) -> bool {
+    fn remove_listener(&mut self, id: ListenerId) -> bool {
+        // If the `listen-onion-service` feature is not enabled, we do not support listening
+        #[cfg(not(feature = "listen-onion-service"))]
+        return false;
+
+        // Take the listener out of the map. This will stop listening on onion service for libp2p connections (we will not poll it anymore)
+        // However, we will not stop the onion service itself because we might want to reuse it later
+        // The onion service will be stopped when the transport is dropped
+        if let Some(listener) = self.listeners.remove(&id) {
+            self.services
+                .push((listener.service, listener.request_stream));
+            return true;
+        }
+
         false
     }
 
@@ -190,7 +377,7 @@ impl Transport for TorTransport {
 
             tracing::debug!(%addr, "Established connection to peer through Tor");
 
-            Ok(stream.into())
+            Ok(TokioTorStream::from(stream))
         }))
     }
 
@@ -206,10 +393,72 @@ impl Transport for TorTransport {
     }
 
     fn poll(
-        self: std::pin::Pin<&mut Self>,
-        _cx: &mut std::task::Context<'_>,
-    ) -> std::task::Poll<TransportEvent<Self::ListenerUpgrade, Self::Error>> {
-        // pending is returned here because this transport doesn't support listening, yet
-        std::task::Poll::Pending
+        mut self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+    ) -> Poll<TransportEvent<Self::ListenerUpgrade, Self::Error>> {
+        // If the `listen-onion-service` feature is not enabled, we do not support listening
+        #[cfg(not(feature = "listen-onion-service"))]
+        return Poll::Pending;
+
+        for (listener_id, listener) in self.listeners.iter_mut() {
+            // Check if the service has any new statuses
+            if let Poll::Ready(Some(status)) = listener.status_stream.as_mut().poll_next(cx) {
+                if status.is_reachable() {
+                    // TODO: We might report the address here multiple time to the swarm. Is this a problem?
+                    return Poll::Ready(TransportEvent::NewAddress {
+                        listener_id: *listener_id,
+                        listen_addr: listener.onion_address.clone(),
+                    });
+                }
+
+                if status.is_broken() {
+                    return Poll::Ready(TransportEvent::ListenerError {
+                        listener_id: *listener_id,
+                        error: TorTransportError::Broken,
+                    });
+                }
+            }
+
+            match listener.request_stream.as_mut().poll_next(cx) {
+                Poll::Ready(Some(request)) => {
+                    let port = listener.port;
+                    let upgrade: PendingUpgrade = Box::pin(async move {
+                        // Check if the port matches what we expect
+                        if let IncomingStreamRequest::Begin(begin) = request.request() {
+                            if begin.port() != port {
+                                // Reject the connection with CONNECTREFUSED
+                                request
+                                    .reject(End::new_with_reason(EndReason::CONNECTREFUSED))
+                                    .await?;
+
+                                return Err(TorTransportError::StreamPortMismatch);
+                            }
+                        }
+
+                        // Accept the stream and forward it to the swarm
+                        let data_stream = request.accept(Connected::new_empty()).await?;
+                        Ok(TokioTorStream::from(data_stream))
+                    });
+
+                    return Poll::Ready(TransportEvent::Incoming {
+                        listener_id: *listener_id,
+                        upgrade,
+                        local_addr: listener.onion_address.clone(),
+                        send_back_addr: listener.onion_address.clone(),
+                    });
+                }
+
+                // The stream has ended. Most likely because the service was shut down
+                Poll::Ready(None) => {
+                    return Poll::Ready(TransportEvent::ListenerClosed {
+                        listener_id: *listener_id,
+                        reason: Ok(()),
+                    });
+                }
+                Poll::Pending => {}
+            }
+        }
+
+        Poll::Pending
     }
 }

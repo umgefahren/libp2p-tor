@@ -17,9 +17,8 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
-
 use arti_client::{DangerouslyIntoTorAddr, IntoTorAddr, TorAddr};
-use libp2p::{core::multiaddr::Protocol, Multiaddr};
+use libp2p::{core::multiaddr::Protocol, multiaddr::Onion3Addr, Multiaddr};
 use std::net::SocketAddr;
 
 /// "Dangerously" extract a Tor address from the provided [`Multiaddr`].
@@ -45,22 +44,35 @@ pub fn dangerous_extract(multiaddr: &Multiaddr) -> Option<TorAddr> {
 pub fn safe_extract(multiaddr: &Multiaddr) -> Option<TorAddr> {
     let mut protocols = multiaddr.into_iter();
 
-    let tor_addr = try_to_domain_and_port(&protocols.next()?, &protocols.next()?)?
+    let tor_addr = try_to_domain_and_port(&protocols.next()?, &protocols.next())?
         .into_tor_addr()
         .ok()?;
 
     Some(tor_addr)
 }
 
+fn libp2p_onion_address_to_domain_and_port<'a>(
+    onion_address: &'a Onion3Addr<'_>,
+) -> Option<(&'a str, u16)> {
+    // Here we convert from Onion3Addr to TorAddr
+    // We need to leak the string because it's a temporary string that would otherwise be freed
+    let hash = data_encoding::BASE32.encode(onion_address.hash());
+    let onion_domain = format!("{}.onion", hash);
+    let onion_domain = Box::leak(onion_domain.into_boxed_str());
+
+    Some((onion_domain, onion_address.port()))
+}
+
 fn try_to_domain_and_port<'a>(
     maybe_domain: &'a Protocol,
-    maybe_port: &Protocol,
+    maybe_port: &Option<Protocol>,
 ) -> Option<(&'a str, u16)> {
     match (maybe_domain, maybe_port) {
         (
             Protocol::Dns(domain) | Protocol::Dns4(domain) | Protocol::Dns6(domain),
-            Protocol::Tcp(port),
+            Some(Protocol::Tcp(port)),
         ) => Some((domain.as_ref(), *port)),
+        (Protocol::Onion3(domain), _) => libp2p_onion_address_to_domain_and_port(domain),
         _ => None,
     }
 }
