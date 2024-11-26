@@ -394,6 +394,12 @@ impl Transport for TorTransport {
         for (listener_id, listener) in self.listeners.iter_mut() {
             // Check if the service has any new statuses
             if let Poll::Ready(Some(status)) = listener.status_stream.as_mut().poll_next(cx) {
+                tracing::debug!(
+                    status = ?status.state(),
+                    address = listener.onion_address.to_string(),
+                    "Onion service status changed"
+                );
+
                 if status.is_reachable() {
                     // TODO: We might report the address here multiple time to the swarm. Is this a problem?
                     return Poll::Ready(TransportEvent::NewAddress {
