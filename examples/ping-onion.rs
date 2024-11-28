@@ -54,48 +54,67 @@ use libp2p::{
 };
 use libp2p_community_tor::{AddressConversion, TorTransport};
 use std::error::Error;
+use tor_hsservice::config::OnionServiceConfigBuilder;
 
+/// Create a transport
+/// Returns a tuple of the transport and the onion address we can instruct it to listen on
 async fn onion_transport(
     keypair: identity::Keypair,
 ) -> Result<
-    libp2p::core::transport::Boxed<(PeerId, libp2p::core::muxing::StreamMuxerBox)>,
+    (
+        libp2p::core::transport::Boxed<(PeerId, libp2p::core::muxing::StreamMuxerBox)>,
+        Multiaddr,
+    ),
     Box<dyn Error>,
 > {
-    let transport = TorTransport::bootstrapped()
+    let mut transport = TorTransport::bootstrapped()
         .await?
-        .with_address_conversion(AddressConversion::IpAndDns)
-        .boxed();
+        .with_address_conversion(AddressConversion::IpAndDns);
+
+    // We derive the nickname for the onion address from the peer id
+    let svg_cfg = OnionServiceConfigBuilder::default()
+        .nickname(
+            keypair
+                .public()
+                .to_peer_id()
+                .to_base58()
+                .to_ascii_lowercase()
+                .parse()
+                .unwrap(),
+        )
+        .num_intro_points(3)
+        .build()
+        .unwrap();
+
+    let onion_listen_address = transport.add_onion_service(svg_cfg, 999).unwrap();
 
     let auth_upgrade = noise::Config::new(&keypair)?;
     let multiplex_upgrade = yamux::Config::default();
 
     let transport = transport
+        .boxed()
         .upgrade(Version::V1)
         .authenticate(auth_upgrade)
         .multiplex(multiplex_upgrade)
         .map(|(peer, muxer), _| (peer, StreamMuxerBox::new(muxer)))
         .boxed();
 
-    Ok(transport)
+    Ok((transport, onion_listen_address))
 }
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
+    tracing_subscriber::fmt::init();
+
     let local_key = identity::Keypair::generate_ed25519();
     let local_peer_id = PeerId::from(local_key.public());
 
     println!("Local peer id: {local_peer_id}");
 
-    let transport = onion_transport(local_key).await?;
+    let (transport, onion_listen_address) = onion_transport(local_key).await?;
 
     let mut swarm = SwarmBuilder::with_new_identity()
         .with_tokio()
-        .with_tcp(
-            Default::default(),
-            (libp2p::tls::Config::new, libp2p::noise::Config::new),
-            libp2p::yamux::Config::default,
-        )
-        .unwrap()
         .with_other_transport(|_| transport)
         .unwrap()
         .with_behaviour(|_| Behaviour {
@@ -104,18 +123,20 @@ async fn main() -> Result<(), Box<dyn Error>> {
         .unwrap()
         .build();
 
-    // Tell the swarm to listen on all interfaces and a random, OS-assigned
-    // port.
-    swarm
-        .listen_on("/ip4/0.0.0.0/tcp/0".parse().unwrap())
-        .unwrap();
-
     // Dial the peer identified by the multi-address given as the second
     // command-line argument, if any.
     if let Some(addr) = std::env::args().nth(1) {
         let remote: Multiaddr = addr.parse()?;
         swarm.dial(remote)?;
         println!("Dialed {addr}")
+    } else {
+        // TODO: We need to do this because otherwise the status of the onion service is gonna be [`Shutdown`]
+        // when we first poll it and then the swarm will not pull it again (?). I don't know why this is the case.
+        tokio::time::sleep(std::time::Duration::from_secs(20)).await;
+
+        // If we are not dialing, we need to listen
+        // Tell the swarm to listen on a specific onion address
+        swarm.listen_on(onion_listen_address).unwrap();
     }
 
     loop {

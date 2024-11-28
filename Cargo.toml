@@ -9,19 +9,39 @@ repository = "https://github.com/umgefahren/libp2p-tor"
 authors = ["umgefahren <hannes@umgefahren.xyz>"]
 
 [dependencies]
-arti-client = { version = "0.24", default-features = false, features = ["tokio", "rustls"] }
+thiserror = "1.0"
+anyhow = "1.0.93"
+tokio = "1.41.1"
 futures = "0.3"
+
+arti-client = { version = "0.24", default-features = false, features = ["tokio", "rustls", "onion-service-client"] }
 libp2p = { version = "^0.53", default-features = false, features = ["tokio", "tcp", "tls"] }
+
 tor-rtcompat = { version = "0.24.0", features = ["tokio", "rustls"] }
-tokio = { version = "1.0", features = ["macros"] }
 tracing = "0.1.40"
+tor-hsservice = { version = "0.24.0", optional = true }
+tor-cell = { version = "0.24.0", optional = true }
+tor-proto = { version = "0.24.0", optional = true }
+data-encoding = { version = "2.6.0", optional = true }
 
 [dev-dependencies]
 libp2p = { version = "0.53", default-features = false, features = ["tokio", "noise", "yamux", "ping", "macros", "tcp", "tls"] }
 tokio-test = "0.4.4"
+tokio = { version = "1.41.1", features = ["macros"] }
+tracing-subscriber = "0.2"
+
+[features]
+listen-onion-service = [
+    "arti-client/onion-service-service",
+    "dep:tor-hsservice",
+    "dep:tor-cell",
+    "dep:tor-proto",
+    "dep:data-encoding"
+]
 
 [[example]]
 name = "ping-onion"
+required-features = ["listen-onion-service"]
 
 [package.metadata.docs.rs]
 all-features = true
