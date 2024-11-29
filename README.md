@@ -8,6 +8,10 @@ Tor based transport for libp2p. Connect through the Tor network to TCP listeners
 
 Build on top of [Arti](https://gitlab.torproject.org/tpo/core/arti).
 
+## New Feature
+
+This crate supports, since #21 (thanks to @binarybaron), listening as a Tor hidden service as well as connecting to them.
+
 ## ⚠️ Misuse warning ⚠️ - read carefully before using
 
 Although the sound of "Tor" might convey a sense of security it is *very* easy to misuse this
