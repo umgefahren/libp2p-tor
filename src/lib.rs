@@ -57,9 +57,9 @@ use libp2p::{
     core::transport::{ListenerId, TransportEvent},
     Multiaddr, Transport, TransportError,
 };
-use std::pin::Pin;
-use std::sync::Arc;
 use std::task::{Context, Poll};
+use std::{collections::HashSet, pin::Pin};
+use std::{collections::VecDeque, sync::Arc};
 use thiserror::Error;
 use tor_rtcompat::tokio::TokioRustlsRuntime;
 
@@ -107,6 +107,8 @@ struct TorListener {
     port: u16,
     /// The onion address we are listening on
     onion_address: Multiaddr,
+    /// Whether we have already announced this address
+    announced: bool,
 }
 
 /// Mode of address conversion.
@@ -268,28 +270,6 @@ impl HsIdExt for HsId {
     }
 }
 
-#[cfg(feature = "listen-onion-service")]
-trait StatusExt {
-    fn is_reachable(&self) -> bool;
-    fn is_broken(&self) -> bool;
-}
-
-#[cfg(feature = "listen-onion-service")]
-impl StatusExt for OnionServiceStatus {
-    /// Returns true if the onion service is probably reachable
-    fn is_reachable(&self) -> bool {
-        matches!(
-            self.state(),
-            tor_hsservice::status::State::Running | tor_hsservice::status::State::DegradedReachable
-        )
-    }
-
-    /// Returns true if the onion service is definitely broken
-    fn is_broken(&self) -> bool {
-        matches!(self.state(), tor_hsservice::status::State::Broken)
-    }
-}
-
 impl Transport for TorTransport {
     type Output = TokioTorStream;
     type Error = TorTransportError;
@@ -320,7 +300,6 @@ impl Transport for TorTransport {
 
         // Find the running onion service that matches the requested address
         // If we find it, remove it from [`services`] and insert it into [`listeners`]
-
         let position = self
             .services
             .iter()
@@ -343,6 +322,7 @@ impl Transport for TorTransport {
                 onion_address: onion_address.clone(),
                 port: address.port(),
                 status_stream,
+                announced: false,
             },
         );
 
@@ -421,21 +401,23 @@ impl Transport for TorTransport {
                     address = listener.onion_address.to_string(),
                     "Onion service status changed"
                 );
+            }
 
-                if status.is_reachable() {
-                    // TODO: We might report the address here multiple time to the swarm. Is this a problem?
-                    return Poll::Ready(TransportEvent::NewAddress {
-                        listener_id: *listener_id,
-                        listen_addr: listener.onion_address.clone(),
-                    });
-                }
+            // Check if we have already announced this address, if not, do it now
+            if !listener.announced {
+                listener.announced = true;
 
-                if status.is_broken() {
-                    return Poll::Ready(TransportEvent::ListenerError {
-                        listener_id: *listener_id,
-                        error: TorTransportError::Broken,
-                    });
-                }
+                // We announce the address here to the swarm even though we technically cannot guarantee
+                // that the address is reachable yet from the outside. We might not have registered the
+                // onion service fully yet (introduction points, hsdir, ...)
+                //
+                // However, we need to announce it now because otherwise libp2p might not poll the listener
+                // again and we will not be able to announce it later.
+                // TODO: Find out why this is the case, if this is intended behaviour or a bug
+                return Poll::Ready(TransportEvent::NewAddress {
+                    listener_id: *listener_id,
+                    listen_addr: listener.onion_address.clone(),
+                });
             }
 
             match listener.request_stream.as_mut().poll_next(cx) {
@@ -467,7 +449,8 @@ impl Transport for TorTransport {
                     });
                 }
 
-                // The stream has ended. Most likely because the service was shut down
+                // The stream has ended
+                // This means that the onion service was shut down, and we will not receive any more connections on it
                 Poll::Ready(None) => {
                     return Poll::Ready(TransportEvent::ListenerClosed {
                         listener_id: *listener_id,

@@ -130,10 +130,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
         swarm.dial(remote)?;
         println!("Dialed {addr}")
     } else {
-        // TODO: We need to do this because otherwise the status of the onion service is gonna be [`Shutdown`]
-        // when we first poll it and then the swarm will not pull it again (?). I don't know why this is the case.
-        tokio::time::sleep(std::time::Duration::from_secs(20)).await;
-
         // If we are not dialing, we need to listen
         // Tell the swarm to listen on a specific onion address
         swarm.listen_on(onion_listen_address).unwrap();
