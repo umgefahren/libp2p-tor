@@ -53,14 +53,14 @@ pub fn safe_extract(multiaddr: &Multiaddr) -> Option<TorAddr> {
 
 fn libp2p_onion_address_to_domain_and_port<'a>(
     onion_address: &'a Onion3Addr<'_>,
-) -> Option<(&'a str, u16)> {
+) -> (&'a str, u16) {
     // Here we convert from Onion3Addr to TorAddr
     // We need to leak the string because it's a temporary string that would otherwise be freed
     let hash = data_encoding::BASE32.encode(onion_address.hash());
-    let onion_domain = format!("{}.onion", hash);
+    let onion_domain = format!("{hash}.onion");
     let onion_domain = Box::leak(onion_domain.into_boxed_str());
 
-    Some((onion_domain, onion_address.port()))
+    (onion_domain, onion_address.port())
 }
 
 fn try_to_domain_and_port<'a>(
@@ -72,7 +72,7 @@ fn try_to_domain_and_port<'a>(
             Protocol::Dns(domain) | Protocol::Dns4(domain) | Protocol::Dns6(domain),
             Some(Protocol::Tcp(port)),
         ) => Some((domain.as_ref(), *port)),
-        (Protocol::Onion3(domain), _) => libp2p_onion_address_to_domain_and_port(domain),
+        (Protocol::Onion3(domain), _) => Some(libp2p_onion_address_to_domain_and_port(domain)),
         _ => None,
     }
 }

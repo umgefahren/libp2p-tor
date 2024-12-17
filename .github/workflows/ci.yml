@@ -37,8 +37,11 @@ jobs:
       
       - uses: Swatinem/rust-cache@v2
 
-      - name: Run all tests
+      - name: Run tests with all features enabled
         run: cargo test --all-features
+
+      - name: Run tests without features enabled
+        run: cargo test
 
   clippy:
     name: Clippy
@@ -57,8 +60,11 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
 
-      - name: Run cargo clippy
+      - name: Run cargo clippy with all features enabled
         run: cargo clippy --all-features
+
+      - name: Run cargo clippy without any features enabled
+        run: cargo clippy
 
   rustfmt:
     name: Rust format
