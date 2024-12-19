@@ -57,9 +57,9 @@ use libp2p::{
     core::transport::{ListenerId, TransportEvent},
     Multiaddr, Transport, TransportError,
 };
+use std::pin::Pin;
+use std::sync::Arc;
 use std::task::{Context, Poll};
-use std::{collections::HashSet, pin::Pin};
-use std::{collections::VecDeque, sync::Arc};
 use thiserror::Error;
 use tor_rtcompat::tokio::TokioRustlsRuntime;
 
