@@ -19,7 +19,7 @@ libp2p = { version = "^0.53", default-features = false, features = ["tokio", "tc
 
 tor-rtcompat = { version = "^0.25", features = ["tokio", "rustls"] }
 tracing = "0.1.40"
-tor-hsservice = { version = "^0.25", optional = true }
+tor-hsservice = { version = "^0.27", optional = true }
 tor-cell = { version = "^0.25", optional = true }
 tor-proto = { version = "^0.25", optional = true }
 data-encoding = { version = "2.6.0" }
