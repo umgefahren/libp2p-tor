@@ -19,6 +19,7 @@
 // DEALINGS IN THE SOFTWARE.
 use arti_client::{DangerouslyIntoTorAddr, IntoTorAddr, TorAddr};
 use libp2p::{core::multiaddr::Protocol, multiaddr::Onion3Addr, Multiaddr};
+use std::borrow::Cow;
 use std::net::SocketAddr;
 
 /// "Dangerously" extract a Tor address from the provided [`Multiaddr`].
@@ -31,11 +32,9 @@ pub fn dangerous_extract(multiaddr: &Multiaddr) -> Option<TorAddr> {
 
     let mut protocols = multiaddr.into_iter();
 
-    let tor_addr = try_to_socket_addr(&protocols.next()?, &protocols.next()?)?
+    try_to_socket_addr(&protocols.next()?, &protocols.next()?)?
         .into_tor_addr_dangerously()
-        .ok()?;
-
-    Some(tor_addr)
+        .ok()
 }
 
 /// "Safely" extract a Tor address from the provided [`Multiaddr`].
@@ -44,34 +43,30 @@ pub fn dangerous_extract(multiaddr: &Multiaddr) -> Option<TorAddr> {
 pub fn safe_extract(multiaddr: &Multiaddr) -> Option<TorAddr> {
     let mut protocols = multiaddr.into_iter();
 
-    let tor_addr = try_to_domain_and_port(&protocols.next()?, &protocols.next())?
-        .into_tor_addr()
-        .ok()?;
-
-    Some(tor_addr)
+    let (dom, port) = (protocols.next()?, protocols.next());
+    let (domain, port) = try_to_domain_and_port(&dom, &port)?;
+    (domain.as_ref(), port).into_tor_addr().ok()
 }
 
 fn libp2p_onion_address_to_domain_and_port<'a>(
     onion_address: &'a Onion3Addr<'_>,
-) -> (&'a str, u16) {
+) -> (Cow<'a, str>, u16) {
     // Here we convert from Onion3Addr to TorAddr
-    // We need to leak the string because it's a temporary string that would otherwise be freed
     let hash = data_encoding::BASE32.encode(onion_address.hash());
     let onion_domain = format!("{hash}.onion");
-    let onion_domain = Box::leak(onion_domain.into_boxed_str());
 
-    (onion_domain, onion_address.port())
+    (onion_domain.into(), onion_address.port())
 }
 
 fn try_to_domain_and_port<'a>(
     maybe_domain: &'a Protocol,
     maybe_port: &Option<Protocol>,
-) -> Option<(&'a str, u16)> {
+) -> Option<(Cow<'a, str>, u16)> {
     match (maybe_domain, maybe_port) {
         (
             Protocol::Dns(domain) | Protocol::Dns4(domain) | Protocol::Dns6(domain),
             Some(Protocol::Tcp(port)),
-        ) => Some((domain.as_ref(), *port)),
+        ) => Some((domain.as_ref().into(), *port)),
         (Protocol::Onion3(domain), _) => Some(libp2p_onion_address_to_domain_and_port(domain)),
         _ => None,
     }
