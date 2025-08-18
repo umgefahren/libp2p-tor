@@ -28,7 +28,7 @@ data-encoding = { version = "2.6.0" }
 libp2p = { version = "0.53", default-features = false, features = ["tokio", "noise", "yamux", "ping", "macros", "tcp", "tls"] }
 tokio-test = "0.4.4"
 tokio = { version = "1.41.1", features = ["macros"] }
-tracing-subscriber = "0.2"
+tracing-subscriber = "0.3"
 
 [features]
 listen-onion-service = [
