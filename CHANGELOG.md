@@ -1,3 +1,17 @@
+# 0.6.0
+
+## Changes
+
+- Updated dependencies:
+  - `libp2p` to `v0.57`
+  - `arti-client`, `tor-rtcompat`, `tor-hsservice`, `tor-cell`, `tor-proto` to `v0.47`
+  - `thiserror` to `v2`; dev: `tracing-subscriber` to `v0.3`
+- `Transport::dial` takes libp2p's `DialOpts`; `dial_as_listener` and `address_translation` are gone from the trait (libp2p-core 0.44). Tor neither hole-punches nor reuses ports, so the options are ignored.
+- `add_onion_service` returns an error when the onion service is disabled in its configuration.
+- `listen-onion-service` now depends on `safelog`.
+- Fixed: dialing an onion address leaked its domain string (`Box::leak`) on every dial.
+- Example `ping-onion`: the swarm uses the key Noise authenticates with (its peer id matches), and a connection times out after 60 s, which an onion circuit can need.
+
 # 0.4.1
 
 - Remove double features: See [PR 21]

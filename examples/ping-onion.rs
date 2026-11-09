@@ -47,19 +47,20 @@ use futures::StreamExt;
 use libp2p::core::upgrade::Version;
 use libp2p::Transport;
 use libp2p::{
-    core::muxing::StreamMuxerBox,
+    core::{muxing::StreamMuxerBox, transport::timeout::TransportTimeout},
     identity, noise,
     swarm::{NetworkBehaviour, SwarmEvent},
-    yamux, Multiaddr, PeerId, SwarmBuilder,
+    yamux, Multiaddr, PeerId, Swarm,
 };
 use libp2p_community_tor::{AddressConversion, TorTransport};
 use std::error::Error;
+use std::time::Duration;
 use tor_hsservice::config::OnionServiceConfigBuilder;
 
 /// Create a transport
 /// Returns a tuple of the transport and the onion address we can instruct it to listen on
 async fn onion_transport(
-    keypair: identity::Keypair,
+    keypair: &identity::Keypair,
 ) -> Result<
     (
         libp2p::core::transport::Boxed<(PeerId, libp2p::core::muxing::StreamMuxerBox)>,
@@ -88,7 +89,7 @@ async fn onion_transport(
 
     let onion_listen_address = transport.add_onion_service(svg_cfg, 999).unwrap();
 
-    let auth_upgrade = noise::Config::new(&keypair)?;
+    let auth_upgrade = noise::Config::new(keypair)?;
     let multiplex_upgrade = yamux::Config::default();
 
     let transport = transport
@@ -111,17 +112,19 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     println!("Local peer id: {local_peer_id}");
 
-    let (transport, onion_listen_address) = onion_transport(local_key).await?;
+    let (transport, onion_listen_address) = onion_transport(&local_key).await?;
 
-    let mut swarm = SwarmBuilder::with_new_identity()
-        .with_tokio()
-        .with_other_transport(|_| transport)
-        .unwrap()
-        .with_behaviour(|_| Behaviour {
+    // A connection (dial and handshake) times out after 60 s: building a
+    // circuit to an onion service can take tens of seconds. The swarm's peer
+    // id is that of the key Noise authenticates with.
+    let mut swarm = Swarm::new(
+        TransportTimeout::new(transport, Duration::from_secs(60)).boxed(),
+        Behaviour {
             ping: libp2p::ping::Behaviour::default(),
-        })
-        .unwrap()
-        .build();
+        },
+        local_peer_id,
+        libp2p::swarm::Config::with_tokio_executor(),
+    );
 
     // Dial the peer identified by the multi-address given as the second
     // command-line argument, if any.
