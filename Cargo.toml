@@ -1,6 +1,6 @@
 [package]
 name = "libp2p-community-tor"
-version = "0.5.0"
+version = "0.6.0"
 edition = "2021"
 license = "MIT"
 resolver = "2"
@@ -9,33 +9,35 @@ repository = "https://github.com/umgefahren/libp2p-tor"
 authors = ["umgefahren <hannes@umgefahren.xyz>"]
 
 [dependencies]
-thiserror = "1.0"
+thiserror = "2"
 anyhow = "1.0.93"
 tokio = "1.41.1"
 futures = "0.3"
 
-arti-client = { version = "^0.29", default-features = false, features = ["tokio", "rustls", "onion-service-client", "static-sqlite"] }
-libp2p = { version = "^0.53", default-features = false, features = ["tokio", "tcp", "tls"] }
+arti-client = { version = "^0.47", default-features = false, features = ["tokio", "rustls", "onion-service-client", "static-sqlite"] }
+libp2p = { version = "0.57", default-features = false, features = ["tokio", "tcp", "tls"] }
 
-tor-rtcompat = { version = "^0.29", features = ["tokio", "rustls"] }
+tor-rtcompat = { version = "^0.47", features = ["tokio", "rustls"] }
 tracing = "0.1.40"
-tor-hsservice = { version = "^0.29", optional = true }
-tor-cell = { version = "^0.29", optional = true }
-tor-proto = { version = "^0.29", optional = true }
+tor-hsservice = { version = "^0.47", optional = true }
+tor-cell = { version = "^0.47", optional = true }
+tor-proto = { version = "^0.47", optional = true }
+safelog = { version = "0.10", optional = true }
 data-encoding = { version = "2.6.0" }
 
 [dev-dependencies]
-libp2p = { version = "0.53", default-features = false, features = ["tokio", "noise", "yamux", "ping", "macros", "tcp", "tls"] }
+libp2p = { version = "0.57", default-features = false, features = ["tokio", "noise", "yamux", "ping", "macros", "tcp", "tls"] }
 tokio-test = "0.4.4"
 tokio = { version = "1.41.1", features = ["macros"] }
-tracing-subscriber = "0.2"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
 [features]
 listen-onion-service = [
     "arti-client/onion-service-service",
     "dep:tor-hsservice",
     "dep:tor-cell",
-    "dep:tor-proto"
+    "dep:tor-proto",
+    "dep:safelog"
 ]
 
 [[example]]

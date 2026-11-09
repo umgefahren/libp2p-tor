@@ -19,6 +19,7 @@
 // DEALINGS IN THE SOFTWARE.
 use arti_client::{DangerouslyIntoTorAddr, IntoTorAddr, TorAddr};
 use libp2p::{core::multiaddr::Protocol, multiaddr::Onion3Addr, Multiaddr};
+use std::borrow::Cow;
 use std::net::SocketAddr;
 
 /// "Dangerously" extract a Tor address from the provided [`Multiaddr`].
@@ -44,35 +45,33 @@ pub fn dangerous_extract(multiaddr: &Multiaddr) -> Option<TorAddr> {
 pub fn safe_extract(multiaddr: &Multiaddr) -> Option<TorAddr> {
     let mut protocols = multiaddr.into_iter();
 
-    let tor_addr = try_to_domain_and_port(&protocols.next()?, &protocols.next())?
-        .into_tor_addr()
-        .ok()?;
+    let maybe_domain = protocols.next()?;
+    let maybe_port = protocols.next();
+    let (domain, port) = try_to_domain_and_port(&maybe_domain, maybe_port.as_ref())?;
+    let tor_addr = (domain.as_ref(), port).into_tor_addr().ok()?;
 
     Some(tor_addr)
 }
 
-fn libp2p_onion_address_to_domain_and_port<'a>(
-    onion_address: &'a Onion3Addr<'_>,
-) -> (&'a str, u16) {
-    // Here we convert from Onion3Addr to TorAddr
-    // We need to leak the string because it's a temporary string that would otherwise be freed
+fn libp2p_onion_address_to_domain_and_port(onion_address: &Onion3Addr<'_>) -> (String, u16) {
+    // The onion domain, `<base32 of the hash>.onion`, and its port.
     let hash = data_encoding::BASE32.encode(onion_address.hash());
-    let onion_domain = format!("{hash}.onion");
-    let onion_domain = Box::leak(onion_domain.into_boxed_str());
-
-    (onion_domain, onion_address.port())
+    (format!("{hash}.onion"), onion_address.port())
 }
 
 fn try_to_domain_and_port<'a>(
     maybe_domain: &'a Protocol,
-    maybe_port: &Option<Protocol>,
-) -> Option<(&'a str, u16)> {
+    maybe_port: Option<&Protocol>,
+) -> Option<(Cow<'a, str>, u16)> {
     match (maybe_domain, maybe_port) {
         (
             Protocol::Dns(domain) | Protocol::Dns4(domain) | Protocol::Dns6(domain),
             Some(Protocol::Tcp(port)),
-        ) => Some((domain.as_ref(), *port)),
-        (Protocol::Onion3(domain), _) => Some(libp2p_onion_address_to_domain_and_port(domain)),
+        ) => Some((Cow::Borrowed(domain.as_ref()), *port)),
+        (Protocol::Onion3(domain), _) => {
+            let (domain, port) = libp2p_onion_address_to_domain_and_port(domain);
+            Some((Cow::Owned(domain), port))
+        }
         _ => None,
     }
 }
@@ -155,6 +154,24 @@ mod tests {
                 TorAddr::dangerously_from((Ipv6Addr::LOCALHOST, 10)).unwrap(),
             ],
             actual.as_slice()
+        );
+    }
+
+    #[test]
+    fn extract_correct_address_from_onion3() {
+        let address = "/onion3/vww6ybal4bd7szmgncyruucpgfkqahzddi37ktceo3ah7ngmcopnpyyd:1234"
+            .parse()
+            .unwrap();
+
+        assert_eq!(
+            Some(
+                TorAddr::from((
+                    "VWW6YBAL4BD7SZMGNCYRUUCPGFKQAHZDDI37KTCEO3AH7NGMCOPNPYYD.onion",
+                    1234
+                ))
+                .unwrap()
+            ),
+            safe_extract(&address)
         );
     }
 

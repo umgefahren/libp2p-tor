@@ -37,10 +37,18 @@ No other combinations are supported.
 
 ### Example
 ```rust
+use libp2p::core::{
+    transport::{DialOpts, PortUse},
+    Endpoint, Transport,
+};
 let address = "/dns/www.torproject.org/tcp/1000".parse()?;
 let mut transport = libp2p_community_tor::TorTransport::bootstrapped().await?;
 // we have achieved tor connection
-let _conn = transport.dial(address)?.await?;
+let opts = DialOpts {
+    role: Endpoint::Dialer,
+    port_use: PortUse::New,
+};
+let _conn = transport.dial(address, opts)?.await?;
 ```
 
 ### About
